@@ -37,7 +37,7 @@ select pv.*, ca.num_cart_adds, ca.total_cart_itemqty, chkout.sold_quantity from 
 		left join shop.vl_pupil vl
 		on vl.vendor_listing_id = cast(json_extract(event_metadata, '$.vlid') as bigint)
 		where i.event_type = 'cart_add' and i.dt >= '2021-03-14'
-		and i.is_bot = false 
+--		and i.is_bot = false 
 	) 
 	select category, cart_add_week, count(*) as num_cart_adds, sum(cart_item_qty) as total_cart_itemqty from t
 	group by 1, 2
