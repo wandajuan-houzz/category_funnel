@@ -13,7 +13,7 @@
 select * from shop.vl_pupil;
 select vendor_listing_id, house_id, category_name, l1_category_name from shop.vl_pupil;
 
--- #Page_views for each item of category
+-- #Page_views for each item of category - via web
 with t as (
 
 	select 
@@ -25,16 +25,36 @@ with t as (
 		select 
 		page_behavior,
 		if(page_id is null, cast(regexp_extract(url, '(.*pv~)(\d+)(.*)', 2) as bigint), page_id) as house_id,
-		page_id, url, topic, dt from l2.page_views_daily 
+--		page_id, url, topic, 
+		'web' as source,
+		dt 
+		from l2.page_views_daily 
 		where page_behavior in ('VIEW_PRODUCT', 'pvp')
 		and cast(dt as date) >= date '2021-03-14'
+		
+		union all 
+		
+		select 
+			null as page_behavior,
+			cast(object_id as bigint) as house_id, 
+--			session_id,
+--			device_id,
+			'app' as source,
+			dt
+		from l2.mobile_client_event -- app sess 
+		where event_type = 'View'
+		and object_id is not null and entity_type = 'Product'
+		and (context <> 'Back' or context is null)
+		and dt >= '2021-03-14'
+		
 		) i 
 	left join shop.vl_pupil vl
 	on i.house_id = vl.house_id
 )
-select category, page_behavior, prod_view_week, count(*) as num_prod_views from t
-group by 1, 2, 3
+select category, source, page_behavior, prod_view_week, count(*) as num_prod_views from t
+group by 1, 2, 3, 4
 ;
+
 
 -- what are those `N/A`?
 
@@ -61,6 +81,40 @@ where category = 'N/A';
 https://www.houzz.co.uk/products/outdoor-concrete-dining-table-small-prvw-vr~121325557
 https://www.houzz.com/products/versailles-bookcase-prvw-vr~130954
 https://www.houzz.com.au/products/armchairs-prvw-vr~43359461
+
+
+-- #Page_views for each item of category - via app
+
+with t as (
+
+	select 
+			if(vl.l1_category_name is null, 'N/A', if(vl.l1_category_name in ('home improvement', 'furniture', 'home decor', 'lighting', 'outdoor products', 'bath products'), vl.l1_category_name, 'others')) as category,
+		    date_add('day', -1, date_trunc('week', date_add('day', 1, cast(i.dt as date)))) as prod_view_week, 
+			*,
+			vl.house_id as vlhouse_id
+	from (
+		select 
+			cast(object_id as bigint) as house_id, 
+			session_id,
+			device_id,
+			'app' as source,
+			dt
+		from l2.mobile_client_event -- app sess 
+		where event_type = 'View'
+		and object_id is not null and entity_type = 'Product'
+		and (context <> 'Back' or context is null)
+		and dt >= '2021-03-14'
+		) i
+	left join shop.vl_pupil vl
+	on i.house_id = vl.house_id
+
+)
+select category, source, prod_view_week, count(*) as num_prod_views from t
+group by 1, 2, 3
+;
+
+
+
 
 
 
